@@ -1,0 +1,66 @@
+{
+  "nodes": [
+    {
+      "id": "Ivan",
+      "group": 1,
+      "img": "avatars/Ivan.png"
+    },
+    {
+      "id": "Nikolay Kolev",
+      "group": 2,
+      "img": "avatars/NikolayKolev.png"
+    },
+    {
+      "id": "Nikolay Stoychev",
+      "group": 3,
+      "img": "avatars/Ivan.png"
+    },
+    {
+      "id": "Nikolay Dobrev",
+      "group": 4,
+      "img": "avatars/NikolayDobrev.png"
+    },
+    {
+      "id": "Ivan Papanov",
+      "group": 5,
+      "img": "avatars/NikolayDobrev.png"
+    },
+    {
+      "id": "Dobromira Dobreva",
+      "group": 6,
+      "img": "avatars/DobromiraDobreva.png"
+    }
+  ],
+  "links": [
+    {
+      "source": "Ivan",
+      "target": "Nikolay Dobrev",
+      "value": 30,
+      "distance": 150
+    },
+    {
+      "source": "Ivan",
+      "target": "Nikolay Stoychev",
+      "value": 50,
+      "distance": 150
+    },
+    {
+      "source": "Nikolay Stoychev",
+      "target": "Ivan Papanov",
+      "value": 50,
+      "distance": 150
+    },
+    {
+      "source": "Nikolay Stoychev",
+      "target": "Nikolay Kolev",
+      "value": 50,
+      "distance": 150
+    },
+    {
+      "source": "Nikolay Stoychev",
+      "target": "Dobromira Dobreva",
+      "value": 50,
+      "distance": 150
+    }
+  ]
+}

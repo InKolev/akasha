@@ -1,0 +1,14 @@
+﻿@page "/"
+
+@inject IJSRuntime jsRuntime;
+
+<svg width="1000" height="800"></svg>
+
+<button onclick="@RevealTheNetwork">Reveal the Network</button>
+@code
+{
+    async Task RevealTheNetwork()
+    {
+        await this.jsRuntime.InvokeVoidAsync("RevealTheNetwork");
+    }
+}
