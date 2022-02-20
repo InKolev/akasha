@@ -9,7 +9,7 @@
             },
             {
                 "id": "Nikolay Kolev",
-                "group":2,
+                "group": 2,
                 "img": "avatars/NikolayKolev.png"
             },
             {
@@ -35,37 +35,42 @@
         ],
         "links": [
             {
-                "source": "Ivan",
+                "source": "Nikolay Stoychev",
                 "target": "Nikolay Dobrev",
-                "value": 30,
+                "value": 20,
                 "distance": 150
             },
             {
                 "source": "Ivan",
                 "target": "Ivan Papanov",
-                "value": 50,
+                "value": 20,
                 "distance": 150
             },
             {
                 "source": "Nikolay Stoychev",
                 "target": "Ivan Papanov",
-                "value": 50,
+                "value": 30,
                 "distance": 150
             },
             {
                 "source": "Nikolay Stoychev",
                 "target": "Nikolay Kolev",
-                "value": 50,
+                "value": 30,
                 "distance": 150
             },
             {
                 "source": "Nikolay Stoychev",
                 "target": "Dobromira Dobreva",
-                "value": 50,
+                "value": 30,
                 "distance": 150
             }
         ]
     };
+
+    var targetDiv = document.getElementsByClassName("network-container")[0];
+
+    var width = targetDiv.clientWidth;
+    var height = targetDiv.clientHeight;
 
     var chart = ForceGraph(network,
         {
@@ -73,11 +78,11 @@
             nodeGroup: d => d.group,
             nodeTitle: d => `${d.id}\n${d.group}`,
             linkStrokeWidth: l => Math.sqrt(l.value),
-            width: 900,
-            height: 600
+            height: height,
+            width: width,
+            nodeRadius: 25
         });
 
-    var targetDiv = document.getElementById("network-container");
     targetDiv.appendChild(chart);
 }
 
@@ -119,8 +124,8 @@ function ForceGraph({
 
 
     // Replace the input nodes and links with mutable objects for the simulation.
-    nodes = d3.map(nodes, (_, i) => ({ id: N[i] }));
-    links = d3.map(links, (_, i) => ({ source: LS[i], target: LT[i] }));
+    nodes = d3.map(nodes, (n, i) => ({ id: N[i], img: n.img }));
+    links = d3.map(links, (l, i) => ({ source: LS[i], target: LT[i], distance: l.distance }));
 
     // Compute default domains.
     if (G && nodeGroups === undefined) nodeGroups = d3.sort(G);
@@ -130,9 +135,13 @@ function ForceGraph({
 
     // Construct the forces.
     const forceNode = d3.forceManyBody().strength(-125);
-    const forceLink = d3.forceLink(links).id(({ index: i }) => N[i]);
+    const forceLink = d3.forceLink(links)
+        .id(({ index: i }) => N[i])
+        .distance(function (element) {
+            return element.distance;
+        });
+
     if (nodeStrength !== undefined) forceNode.strength(nodeStrength);
-    if (linkStrength !== undefined) forceLink.strength(linkStrength);
 
     const simulation = d3.forceSimulation(nodes)
         .force("link", forceLink)
@@ -144,6 +153,7 @@ function ForceGraph({
         .attr("width", width)
         .attr("height", height)
         .attr("viewBox", [-width / 2, -height / 2, width, height])
+        .attr("preserveAspectRatio", "xMinYMin meet")
         .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
 
     const link = svg.append("g")
@@ -155,14 +165,49 @@ function ForceGraph({
         .data(links)
         .join("line");
 
+    //// Update the nodes…
+    //const node = vis.selectAll("g.node")
+    //    .data(nodes, function (d) { return d.id; });
+
+
+    //// Enter any new nodes.
+    //var nodeEnter = node.enter().append("svg:g")
+    //    .attr("class", "node")
+    //    .attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; })
+    //    .on("click", click)
+    //    .call(force.drag);
+
+    //// Append a circle
+    //nodeEnter.append("svg:circle")
+    //    .attr("r", function (d) { return Math.sqrt(d.size) / 10 || 4.5; })
+    //    .style("fill", "#eee");
+
+    //// Append images
+    //var images = nodeEnter.append("svg:image")
+    //    .attr("xlink:href", function (d) { return d.img; })
+    //    .attr("x", function (d) { return -25; })
+    //    .attr("y", function (d) { return -25; })
+    //    .attr("height", 50)
+    //    .attr("width", 50);
+
+    //node.attr("transform", nodeTransform);
+
     const node = svg.append("g")
         .attr("fill", nodeFill)
         .attr("stroke", nodeStroke)
         .attr("stroke-opacity", nodeStrokeOpacity)
         .attr("stroke-width", nodeStrokeWidth)
-        .selectAll("circle")
+        .selectAll("image")
         .data(nodes)
-        .join("circle")
+        .enter().append("svg:image")
+        .attr("xlink:href", function (d) {
+            return d.img;
+        })
+        .attr("width", 48)
+        .attr("height", 48)
+        .attr("x", -25)
+        .attr("y", -25)
+        .join("image")
         .attr("r", nodeRadius)
         .call(drag(simulation));
 
@@ -176,6 +221,16 @@ function ForceGraph({
         return value !== null && typeof value === "object" ? value.valueOf() : value;
     }
 
+    /*
+     * Gives the coordinates of the border for keeping the nodes inside a frame
+     * http://bl.ocks.org/mbostock/1129492
+     */
+    function nodeTransform(d) {
+        d.x = Math.max(maxNodeSize, Math.min(w - (d.imgwidth / 2 || 16), d.x));
+        d.y = Math.max(maxNodeSize, Math.min(h - (d.imgheight / 2 || 16), d.y));
+        return "translate(" + d.x + "," + d.y + ")";
+    }
+
     function ticked() {
         link
             .attr("x1", d => d.source.x)
@@ -183,9 +238,20 @@ function ForceGraph({
             .attr("x2", d => d.target.x)
             .attr("y2", d => d.target.y);
 
+        // Allow image nodes to be rendered properly.
+        node
+            .attr("transform", function (d) {
+                return "translate(" + d.x + "," + d.y + ")";
+            });
+
         node
             .attr("cx", d => d.x)
             .attr("cy", d => d.y);
+
+        // Prevent nodes from leaping out of bounds. Makes the nodes stay only inside the canvas.
+        //node
+        //    .attr("cx", function (d) { return d.x = Math.max(nodeRadius, Math.min(width - nodeRadius, d.x)); })
+        //    .attr("cy", function (d) { return d.y = Math.max(nodeRadius, Math.min(height - nodeRadius, d.y)); });
     }
 
     function drag(simulation) {
