@@ -7,7 +7,7 @@
     },
     {
       "id": "Nikolay Kolev",
-      "group": 2,
+      "group": 6,
       "img": "avatars/NikolayKolev.png"
     },
     {
@@ -22,7 +22,7 @@
     },
     {
       "id": "Ivan Papanov",
-      "group": 5,
+      "group": 6,
       "img": "avatars/NikolayDobrev.png"
     },
     {
@@ -40,7 +40,7 @@
     },
     {
       "source": "Ivan",
-      "target": "Nikolay Stoychev",
+      "target": "Ivan Papanov",
       "value": 50,
       "distance": 150
     },

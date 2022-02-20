@@ -1,100 +1,216 @@
-﻿
-function RevealTheNetwork() {
+﻿function RevealTheNetwork() {
 
-    var svg = d3.select("svg"),
-        width = +svg.attr("width"),
-        height = +svg.attr("height"),
-        radius = 25;
+    var network = {
+        "nodes": [
+            {
+                "id": "Ivan",
+                "group": 1,
+                "img": "avatars/Ivan.png"
+            },
+            {
+                "id": "Nikolay Kolev",
+                "group":2,
+                "img": "avatars/NikolayKolev.png"
+            },
+            {
+                "id": "Nikolay Stoychev",
+                "group": 3,
+                "img": "avatars/Ivan.png"
+            },
+            {
+                "id": "Nikolay Dobrev",
+                "group": 4,
+                "img": "avatars/NikolayDobrev.png"
+            },
+            {
+                "id": "Ivan Papanov",
+                "group": 5,
+                "img": "avatars/NikolayDobrev.png"
+            },
+            {
+                "id": "Dobromira Dobreva",
+                "group": 6,
+                "img": "avatars/DobromiraDobreva.png"
+            }
+        ],
+        "links": [
+            {
+                "source": "Ivan",
+                "target": "Nikolay Dobrev",
+                "value": 30,
+                "distance": 150
+            },
+            {
+                "source": "Ivan",
+                "target": "Ivan Papanov",
+                "value": 50,
+                "distance": 150
+            },
+            {
+                "source": "Nikolay Stoychev",
+                "target": "Ivan Papanov",
+                "value": 50,
+                "distance": 150
+            },
+            {
+                "source": "Nikolay Stoychev",
+                "target": "Nikolay Kolev",
+                "value": 50,
+                "distance": 150
+            },
+            {
+                "source": "Nikolay Stoychev",
+                "target": "Dobromira Dobreva",
+                "value": 50,
+                "distance": 150
+            }
+        ]
+    };
 
-    var color = d3.scaleOrdinal(d3.schemeCategory20);
+    var chart = ForceGraph(network,
+        {
+            nodeId: d => d.id,
+            nodeGroup: d => d.group,
+            nodeTitle: d => `${d.id}\n${d.group}`,
+            linkStrokeWidth: l => Math.sqrt(l.value),
+            width: 900,
+            height: 600
+        });
 
-    var simulation = d3.forceSimulation()
-        .force("link", d3
-            .forceLink()
-            .id(function (d) { return d.id; })
-            .distance(function (d) { return d.distance; }))
-        .force("charge", d3
-            .forceManyBody()
-            .strength(-125))
-        .force("center", d3
-            .forceCenter(width / 2, height / 2))
-        .force('collision', d3
-            .forceCollide()
-            .radius(function (d) { return d.radius * 2; }));
+    var targetDiv = document.getElementById("network-container");
+    targetDiv.appendChild(chart);
+}
 
-    d3.json("network.json", function (error, graph) {
-        if (error) throw error;
+function ForceGraph({
+    nodes, // an iterable of node objects (typically [{id}, …])
+    links // an iterable of link objects (typically [{source, target}, …])
+}, {
+    nodeId = d => d.id, // given d in nodes, returns a unique identifier (string)
+    nodeGroup, // given d in nodes, returns an (ordinal) value for color
+    nodeGroups, // an array of ordinal values representing the node groups
+    nodeTitle, // given d in nodes, a title string
+    nodeFill = "currentColor", // node stroke fill (if not using a group color encoding)
+    nodeStroke = "#fff", // node stroke color
+    nodeStrokeWidth = 1.5, // node stroke width, in pixels
+    nodeStrokeOpacity = 1, // node stroke opacity
+    nodeRadius = 5, // node radius, in pixels
+    nodeStrength,
+    linkSource = ({ source }) => source, // given d in links, returns a node identifier string
+    linkTarget = ({ target }) => target, // given d in links, returns a node identifier string
+    linkStroke = "#999", // link stroke color
+    linkStrokeOpacity = 0.6, // link stroke opacity
+    linkStrokeWidth = 1.5, // given d in links, returns a stroke width in pixels
+    linkStrokeLinecap = "round", // link stroke linecap
+    linkStrength,
+    colors = d3.schemeTableau10, // an array of color strings, for the node groups
+    width = 640, // outer width, in pixels
+    height = 400, // outer height, in pixels
+    invalidation // when this promise resolves, stop the simulation
+} = {}) {
+    // Compute values.
+    const N = d3.map(nodes, nodeId).map(intern);
+    const LS = d3.map(links, linkSource).map(intern);
+    const LT = d3.map(links, linkTarget).map(intern);
+    if (nodeTitle === undefined) nodeTitle = (_, i) => N[i];
+    const T = nodeTitle == null ? null : d3.map(nodes, nodeTitle);
+    const G = nodeGroup == null ? null : d3.map(nodes, nodeGroup).map(intern);
+    const W = typeof linkStrokeWidth !== "function" ? null : d3.map(links, linkStrokeWidth);
+    const L = typeof linkStroke !== "function" ? null : d3.map(links, linkStroke);
 
-        var link = svg.append("g")
-            .attr("class", "links")
-            .selectAll("line")
-            .data(graph.links)
-            .enter().append("line")
-            .attr("stroke-width", function (d) { return Math.sqrt(d.value); });
 
-        var node = svg.append("g")
-            .attr("class", "nodes")
-            .selectAll("image")
-            .data(graph.nodes)
-            .enter().append("image")
-            .attr("xlink:href", function (d) {
-                return d.img;
-            })
-            .attr("width", 48)
-            .attr("height", 48)
-            .attr("x", -25)
-            .attr("y", -25)
-            .attr("r", radius)
-            .call(d3.drag()
-                .on("start", dragstarted)
-                .on("drag", dragged)
-                .on("end", dragended));
+    // Replace the input nodes and links with mutable objects for the simulation.
+    nodes = d3.map(nodes, (_, i) => ({ id: N[i] }));
+    links = d3.map(links, (_, i) => ({ source: LS[i], target: LT[i] }));
 
-        node.append("title")
-            .text(function (d) { return d.id; });
+    // Compute default domains.
+    if (G && nodeGroups === undefined) nodeGroups = d3.sort(G);
 
-        simulation
-            .nodes(graph.nodes)
-            .on("tick", ticked);
+    // Construct the scales.
+    const color = nodeGroup == null ? null : d3.scaleOrdinal(nodeGroups, colors);
 
-        simulation.force("link")
-            .links(graph.links);
+    // Construct the forces.
+    const forceNode = d3.forceManyBody().strength(-125);
+    const forceLink = d3.forceLink(links).id(({ index: i }) => N[i]);
+    if (nodeStrength !== undefined) forceNode.strength(nodeStrength);
+    if (linkStrength !== undefined) forceLink.strength(linkStrength);
 
-        function ticked() {
-            link
-                .attr("x1", function (d) { return d.source.x; })
-                .attr("y1", function (d) { return d.source.y; })
-                .attr("x2", function (d) { return d.target.x; })
-                .attr("y2", function (d) { return d.target.y; });
+    const simulation = d3.forceSimulation(nodes)
+        .force("link", forceLink)
+        .force("charge", forceNode)
+        .force("center", d3.forceCenter())
+        .on("tick", ticked);
 
-            // Allow image nodes to be rendered properly.
-            node
-                .attr("transform", function (d) {
-                    return "translate(" + d.x + "," + d.y + ")";
-                });
+    const svg = d3.create("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("viewBox", [-width / 2, -height / 2, width, height])
+        .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
 
-            // Prevent nodes from leaping out of bounds. Makes the nodes stay only inside the canvas.
-            node
-                .attr("cx", function (d) { return d.x = Math.max(radius, Math.min(width - radius, d.x)); })
-                .attr("cy", function (d) { return d.y = Math.max(radius, Math.min(height - radius, d.y)); });
+    const link = svg.append("g")
+        .attr("stroke", typeof linkStroke !== "function" ? linkStroke : null)
+        .attr("stroke-opacity", linkStrokeOpacity)
+        .attr("stroke-width", typeof linkStrokeWidth !== "function" ? linkStrokeWidth : null)
+        .attr("stroke-linecap", linkStrokeLinecap)
+        .selectAll("line")
+        .data(links)
+        .join("line");
+
+    const node = svg.append("g")
+        .attr("fill", nodeFill)
+        .attr("stroke", nodeStroke)
+        .attr("stroke-opacity", nodeStrokeOpacity)
+        .attr("stroke-width", nodeStrokeWidth)
+        .selectAll("circle")
+        .data(nodes)
+        .join("circle")
+        .attr("r", nodeRadius)
+        .call(drag(simulation));
+
+    if (W) link.attr("stroke-width", ({ index: i }) => W[i]);
+    if (L) link.attr("stroke", ({ index: i }) => L[i]);
+    if (G) node.attr("fill", ({ index: i }) => color(G[i]));
+    if (T) node.append("title").text(({ index: i }) => T[i]);
+    if (invalidation != null) invalidation.then(() => simulation.stop());
+
+    function intern(value) {
+        return value !== null && typeof value === "object" ? value.valueOf() : value;
+    }
+
+    function ticked() {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        node
+            .attr("cx", d => d.x)
+            .attr("cy", d => d.y);
+    }
+
+    function drag(simulation) {
+        function dragstarted(event) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            event.subject.fx = event.subject.x;
+            event.subject.fy = event.subject.y;
         }
-    });
 
-    function dragstarted(d) {
-        if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x;
-        d.fy = d.y;
+        function dragged(event) {
+            event.subject.fx = event.x;
+            event.subject.fy = event.y;
+        }
+
+        function dragended(event) {
+            if (!event.active) simulation.alphaTarget(0);
+            event.subject.fx = null;
+            event.subject.fy = null;
+        }
+
+        return d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended);
     }
 
-    function dragged(d) {
-        d.fx = d3.event.x;
-        d.fy = d3.event.y;
-    }
-
-    function dragended(d) {
-        if (!d3.event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
-    }
-
+    return Object.assign(svg.node(), { scales: { color } });
 }
