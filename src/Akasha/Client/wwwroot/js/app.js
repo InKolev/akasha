@@ -1,4 +1,8 @@
-﻿function RevealTheNetwork() {
+﻿var isNetworkRendered = false;
+
+function RevealTheNetwork() {
+
+    if (isNetworkRendered) return;
 
     var network = {
         "nodes": [
@@ -76,7 +80,7 @@
         {
             nodeId: d => d.id,
             nodeGroup: d => d.group,
-            nodeTitle: d => `${d.id}\n${d.group}`,
+            nodeTitle: d => d.id,
             linkStrokeWidth: l => Math.sqrt(l.value),
             height: height,
             width: width,
@@ -84,6 +88,7 @@
         });
 
     targetDiv.appendChild(chart);
+    isNetworkRendered = true;
 }
 
 function ForceGraph({
@@ -165,33 +170,6 @@ function ForceGraph({
         .data(links)
         .join("line");
 
-    //// Update the nodes…
-    //const node = vis.selectAll("g.node")
-    //    .data(nodes, function (d) { return d.id; });
-
-
-    //// Enter any new nodes.
-    //var nodeEnter = node.enter().append("svg:g")
-    //    .attr("class", "node")
-    //    .attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; })
-    //    .on("click", click)
-    //    .call(force.drag);
-
-    //// Append a circle
-    //nodeEnter.append("svg:circle")
-    //    .attr("r", function (d) { return Math.sqrt(d.size) / 10 || 4.5; })
-    //    .style("fill", "#eee");
-
-    //// Append images
-    //var images = nodeEnter.append("svg:image")
-    //    .attr("xlink:href", function (d) { return d.img; })
-    //    .attr("x", function (d) { return -25; })
-    //    .attr("y", function (d) { return -25; })
-    //    .attr("height", 50)
-    //    .attr("width", 50);
-
-    //node.attr("transform", nodeTransform);
-
     const node = svg.append("g")
         .attr("fill", nodeFill)
         .attr("stroke", nodeStroke)
@@ -219,16 +197,6 @@ function ForceGraph({
 
     function intern(value) {
         return value !== null && typeof value === "object" ? value.valueOf() : value;
-    }
-
-    /*
-     * Gives the coordinates of the border for keeping the nodes inside a frame
-     * http://bl.ocks.org/mbostock/1129492
-     */
-    function nodeTransform(d) {
-        d.x = Math.max(maxNodeSize, Math.min(w - (d.imgwidth / 2 || 16), d.x));
-        d.y = Math.max(maxNodeSize, Math.min(h - (d.imgheight / 2 || 16), d.y));
-        return "translate(" + d.x + "," + d.y + ")";
     }
 
     function ticked() {
